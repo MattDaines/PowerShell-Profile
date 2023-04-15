@@ -1,5 +1,3 @@
-# PwerShell Profile locations: https://learn.microsoft.com/en-gb/powershell/module/microsoft.powershell.core/about/about_profiles?view=powershell-7.3
-
 $DefaultPath = "C:\Users\${env:username}\Documents\Repos\"
 If (Test-Path $DefaultPath) {
     Set-Location $DefaultPath
