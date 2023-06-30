@@ -95,4 +95,4 @@ else {
 
 Write-Host ("⚡ Starting Oh-My-Posh!")
 oh-my-posh --init --shell pwsh --config "C:\Users\${env:username}\OneDrive\Documents\PowerShell\Modules\oh-my-posh\3.177.0\themes\blue-owl.omp.json" | Invoke-Expression
-
+$env:POSH_GIT_ENABLED = $true
