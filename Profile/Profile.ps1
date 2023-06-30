@@ -35,6 +35,42 @@ function Start-ModuleVersionCheck($ModuleName) {
     }
 }
 
+function Uninstall-ObsoleteModule {
+    [CmdletBinding()]
+    param (
+        [String]$ModuleName,
+        [Switch]$WhatIf
+    )
+    
+    begin {
+        Write-Verbose -Message ("Getting all versions of the module $ModuleName")
+        $Module = Get-Module -ListAvailable -Name $ModuleName
+
+        if ($Module.Count -eq 1) {
+            Write-Verbose -Message ("There is $($Module.count) version of $ModuleName")
+        }
+        if ($Module.Count -gt 1) {
+            Write-Verbose -Message ("There are $($Module.count) versions of $ModuleName")
+        }
+        if (($Module.Count -eq 0) -or ($null -eq $Module)) {
+            Write-Error -Message "The module is not installed."
+        }
+    }
+    
+    process {
+        $ModuleUninstallVersions = $Module | Sort-Object Version -Descending | Select-Object -Skip 1
+        foreach ($ModuleVersion in $ModuleUninstallVersions) {
+            if ($WhatIf) {
+                Uninstall-Module -Name $ModuleName -RequiredVersion $ModuleVersion.Version -WhatIf
+            } else {
+                Write-Verbose -Message ("Uninstalling $($ModuleVersion.Version) of $ModuleName")
+                Uninstall-Module -Name $ModuleName -RequiredVersion $ModuleVersion.Version
+            }
+        }
+    }
+    end {}
+}
+
 # -- Module Imports -- #
 Import-ModuleIfInstalled("Terminal-Icons")
 Import-ModuleIfInstalled("Az.Accounts")         # Only a subnet of modules are imported to speed up startup
