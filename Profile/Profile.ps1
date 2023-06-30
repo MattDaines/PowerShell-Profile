@@ -39,6 +39,7 @@ function Start-ModuleVersionCheck($ModuleName) {
 Import-ModuleIfInstalled("Terminal-Icons")
 Import-ModuleIfInstalled("Az.Accounts")         # Only a subnet of modules are imported to speed up startup
 Import-ModuleIfInstalled("Az.Resources")
+Import-ModuleIfInstalled("posh-git")
 
 # Import the Chocolatey Profile that contains the necessary code to enable
 # tab-completions to function for `choco`.
