@@ -1,3 +1,5 @@
+# PwerShell Profile locations: https://learn.microsoft.com/en-gb/powershell/module/microsoft.powershell.core/about/about_profiles?view=powershell-7.3
+
 $DefaultPath = "C:\Users\${env:username}\Documents\Repos\"
 If (Test-Path $DefaultPath) {
     Set-Location $DefaultPath
@@ -37,6 +39,17 @@ function Start-ModuleVersionCheck($ModuleName) {
 Import-ModuleIfInstalled("Terminal-Icons")
 Import-ModuleIfInstalled("Az.Accounts")         # Only a subnet of modules are imported to speed up startup
 Import-ModuleIfInstalled("Az.Resources")
+
+# Import the Chocolatey Profile that contains the necessary code to enable
+# tab-completions to function for `choco`.
+# Be aware that if you are missing these lines from your profile, tab completion
+# for `choco` will not function.
+# See https://ch0.co/tab-completion for details.
+$ChocolateyProfile = "$env:ChocolateyInstall\helpers\chocolateyProfile.psm1"
+if (Test-Path($ChocolateyProfile)) {
+    Import-ModuleIfInstalled("$ChocolateyProfile")
+}
+
 
 # -- Moudle Version Checks -- #
 $InstalledModules = Get-InstalledModule | Where-Object Name -NotLike Az.*
@@ -81,3 +94,4 @@ else {
 
 Write-Host ("⚡ Starting Oh-My-Posh!")
 oh-my-posh --init --shell pwsh --config "C:\Users\${env:username}\OneDrive\Documents\PowerShell\Modules\oh-my-posh\3.177.0\themes\blue-owl.omp.json" | Invoke-Expression
+
