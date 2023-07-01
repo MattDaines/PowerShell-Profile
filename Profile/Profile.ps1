@@ -1,3 +1,49 @@
+
+# -- Config.json & Data.json -- #
+
+# Gets the PowerShell Profile Directory
+$ProfileDirectory = Split-Path -Parent -Path $PROFILE
+
+# Creates the expected paths for the JSON files
+$JSONConfigPath = Join-Path -Path $ProfileDirectory -ChildPath 'config.json'
+$JSONDataPath   = Join-Path -Path $ProfileDirectory -ChildPath 'data.json'
+
+# Creates the Config JSON file if it don't exist
+if (!(Test-Path -LiteralPath $JSONConfigPath)) {
+    # The default starting body of the JSON file
+    $JSONConfigBody = @{
+        PowerShell = @{
+            defaultModuleUpdateFrequency = 7
+            modules = @()
+        }
+    }
+
+    # Creates the file as it doesn't exist
+    New-Item -ItemType File -Path $JSONConfigPath
+    # Sets the default body of the JSON file
+    Set-Content -Path $JSONConfigPath -Value ($JSONConfigBody | ConvertTo-Json)
+    Remove-Variable -Name JSONConfigBody
+}
+
+# Creates the Data JSON file if it don't exist
+if (!(Test-Path -LiteralPath $JSONDataPath)) {
+    # The default starting body of the JSON file
+    $JSONDataBody = @{}
+
+    # Creates the file as it doesn't exist
+    New-Item -ItemType File -Path $JSONDataPath
+    # Sets the default body of the JSON file
+    Set-Content -Path $JSONDataPath -Value ($JSONDataBody | ConvertTo-Json)
+    Remove-Variable -Name JSONDataBody
+}
+
+# Gets the contents of the JSON file (as they should exist now!)
+# Stores in a variable for later use
+$JSONConfig = Get-Content -Path $JSONConfigPath | ConvertFrom-Json
+$JSONData = Get-Content -Path $JSONDataPath | ConvertFrom-Json
+# Remove-Variable -Name JSONConfigPath, JSONDataPath                    No sure if I'll need these.
+
+# Sets the Default Path to where Repositories are stored
 $DefaultPath = "C:\Users\${env:username}\Documents\Repos\"
 If (Test-Path $DefaultPath) {
     Set-Location $DefaultPath
