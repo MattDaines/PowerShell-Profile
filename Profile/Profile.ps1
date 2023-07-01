@@ -82,6 +82,49 @@ function Start-ModuleVersionCheck($ModuleName) {
     }
 }
 
+function Uninstall-ObsoleteModule {
+    [CmdletBinding()]
+    param (
+        [String]$ModuleName,
+        [Switch]$WhatIf
+    )
+    begin {
+        Write-Verbose -Message ("Getting all versions of the module $ModuleName")
+        $Module = Get-Module -ListAvailable -Name $ModuleName
+
+        
+    }
+    process {
+        # If there is only one version of the module, then there is no module versions to uninstall
+        if ($Module.Count -eq 1) {
+            Write-Verbose -Message ("There is $($Module.count) version of $ModuleName")
+        }
+        # If there is more than one version of the module, then there are module versions to uninstall
+        # We will try to uninstall versions of the module that are not the latest version
+        if ($Module.Count -gt 1) {
+            Write-Verbose -Message ("There are $($Module.count) versions of $ModuleName")
+            # Get all versions of the module except the latest version (Using "-Skip 1")
+            $ModuleUninstallVersions = $Module | Sort-Object Version -Descending | Select-Object -Skip 1
+            foreach ($ModuleVersion in $ModuleUninstallVersions) {
+                # If the -WhatIf switch is used, then we will not uninstall the module but output to console
+                if ($WhatIf) {
+                    Uninstall-Module -Name $ModuleName -RequiredVersion $ModuleVersion.Version -WhatIf
+                }
+                # If the -WhatIf switch is not used, then we will uninstall the module
+                else {
+                    Write-Verbose -Message ("Uninstalling $($ModuleVersion.Version) of $ModuleName")
+                    Uninstall-Module -Name $ModuleName -RequiredVersion $ModuleVersion.Version
+                }
+            }
+        }
+        # If there are no versions of the module, then there is nothing to do
+        if (($Module.Count -eq 0) -or ($null -eq $Module)) {
+            Write-Error -Message "The module is not installed."
+        }
+    }
+    end {}
+}
+
 # -- Moudle Version Checks -- #
 
 # Gets all PowerShell Modules - excluding the sub-modules of Az
@@ -184,6 +227,8 @@ if ($jobsCreated) {
                 Set-Content -Path $JSONDataPath -Value ($JSONData | ConvertTo-Json)                                   # Save
                 # Get to ensure we have the latest version, after just writing to it
                 $JSONData = Get-Content -Path $JSONDataPath | ConvertFrom-Json                                        # Get
+
+                Uninstall-ObsoleteModule -ModuleName $module.Name -Verbose
 
             } else {
                 Write-Host ("⚠️ Update available for module: " + $($job.Name.Replace("VersionChecker-", "")))
