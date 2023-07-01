@@ -171,12 +171,23 @@ if ($jobsCreated) {
             if ($JSONConfig.PowerShell.moduleAutoUpdate) {
                 Write-Host ("⚡ Attempting to update module: " + $($job.Name.Replace("VersionChecker-", "")))
                 Update-Module -Name $($job.Name.Replace("VersionChecker-", "")) -Verbose
+
+                # Set the LastUpdated to the current date
+                # Get the contents of the file to ensure we have the latest version     
+                $JSONData = Get-Content -Path $JSONDataPath | ConvertFrom-Json                                        # Get
+                # Update the LastUpdateCheck
+                ($JSONData.powershellModules | Where-Object Name -eq $module.Name).LastUpdated = Get-Date -AsUTC      # Set
+                # Save the new array to the Data.json file
+                Set-Content -Path $JSONDataPath -Value ($JSONData | ConvertTo-Json)                                   # Save
+                # Get to ensure we have the latest version, after just writing to it
+                $JSONData = Get-Content -Path $JSONDataPath | ConvertFrom-Json                                        # Get
+
             } else {
                 Write-Host ("⚠️ Update available for module: " + $($job.Name.Replace("VersionChecker-", "")))
-                Write-Host ("⚡ To update use: Update-Module -Name " + $($job.Name.Replace("VersionChecker-", "")) + ". Alternatively, set moduleAutoUpdate to true in $($JSONConfigPath)")
+                Write-Host (" To update use: Update-Module -Name " + $($job.Name.Replace("VersionChecker-", "")) + ". Alternatively, set moduleAutoUpdate to true in $($JSONConfigPath). Updating manually will not update the LastUpdated property in the profile data file.")
             }
         }
-    Remove-Job -Name $Job.Name
+        Remove-Job -Name $Job.Name
     }
 }
 
