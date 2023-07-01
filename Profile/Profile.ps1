@@ -13,7 +13,8 @@ if (!(Test-Path -LiteralPath $JSONConfigPath)) {
     # The default starting body of the JSON file
     $JSONConfigBody = @{
         PowerShell = @{
-            defaultModuleUpdateFrequency = 7
+            moduleAutoUpdate = $true
+            moduleDefaultUpdateFrequency = 7
             modules = @()
         }
     }
@@ -28,7 +29,9 @@ if (!(Test-Path -LiteralPath $JSONConfigPath)) {
 # Creates the Data JSON file if it don't exist
 if (!(Test-Path -LiteralPath $JSONDataPath)) {
     # The default starting body of the JSON file
-    $JSONDataBody = @{}
+    $JSONDataBody = @{
+        powershellModules = @()
+    }
 
     # Creates the file as it doesn't exist
     New-Item -ItemType File -Path $JSONDataPath
@@ -79,30 +82,122 @@ function Start-ModuleVersionCheck($ModuleName) {
     }
 }
 
-# -- Module Imports -- #
-Import-ModuleIfInstalled("Terminal-Icons")
-Import-ModuleIfInstalled("Az.Accounts")         # Only a subnet of modules are imported to speed up startup
-Import-ModuleIfInstalled("Az.Resources")
-
 # -- Moudle Version Checks -- #
+
+<# Process Flow
+    - Get all installed modules
+    - Begin a foreach loop:
+        - [JSON]Check if they are registered in the Data.json file
+        - [JSON]If not, register them
+
+        - Check if they have been checked for updates
+        - If not, check for updates
+        
+        - If so, check if the last check was longer than the default update frequency
+        - If so, check for updates
+
+        - If not, do nothing
+        - If there are updates, check if moduleAutoUpdate is true
+        - If so, update the module
+        - If not, do nothing
+#>
+
 $InstalledModules = Get-InstalledModule | Where-Object Name -NotLike Az.*
 foreach ($module in $InstalledModules) {
-    Start-ModuleVersionCheck -ModuleName $module.Name
-}
-Write-Host ("Waiting for version checks to complete...")
-$Jobs = Get-Job
+    # Before we check for the last updates we need to make sure that the module is registered in the Data.json file
 
-while ($Jobs.State -contains "Running") {
-    $Jobs = Get-Job
-    Start-Sleep -Seconds 1
-}
+    $ModuleFromDataFile = $JSONData.powershellModules | Where-Object Name -eq $module.Name
+    # Check if $ModuleFromDataFile is populated. If it's $null, then the module PowerShell module
+    # is registered to the Data.json file by this if statement.
+    if (!($ModuleFromDataFile)) {
+        # Module is not registered in the Data.json file
 
-foreach ($Job in $Jobs) {
-    if (Receive-Job -Keep -Id $Job.Id) {
-        Write-Host ("⚠️ Update available for module: " + $($job.Name.Replace("VersionChecker-", "")))
-        Write-Host ("⚡ To update use: Update-Module -Name " + $($job.Name.Replace("VersionChecker-", "")))
+        # Default body of the new module
+        $NewModuleBody = @{
+            Name = $module.Name
+            LastUpdateCheck = $null
+            LastUpdated = $null
+        }
+
+        # Get the contents of the file to ensure we have the latest version     
+        $JSONData = Get-Content -Path $JSONDataPath | ConvertFrom-Json          # Get
+        # Add the new module to the array
+        $JSONData.powershellModules += $NewModuleBody                           # Set
+        # Save the new array to the Data.json file
+        Set-Content -Path $JSONDataPath -Value ($JSONData | ConvertTo-Json)     # Save
+        # Get to ensure we have the latest version, after just writing to it
+        $JSONData = Get-Content -Path $JSONDataPath | ConvertFrom-Json          # Get
     }
+
+    # Now that the module is definitely registered in the Data.json file, we can check when they were last updated.
+
+
+    if ((!($JSONData.powershellModules | Where-Object Name -eq $module.Name).LastUpdateCheck)) {
+        # Module has never been checked for updates
+
+        # Start a job to check for an update
+        Start-ModuleVersionCheck -ModuleName $module.Name
+        $jobsCreated = $true # Used later during the job check
+
+        # Set the LastUpdateCheck to the current date
+        # Get the contents of the file to ensure we have the latest version     
+        $JSONData = Get-Content -Path $JSONDataPath | ConvertFrom-Json                                        # Get
+        # Update the LastUpdateCheck
+        ($JSONData.powershellModules | Where-Object Name -eq $module.Name).LastUpdateCheck = Get-Date -AsUTC  # Set
+        # Save the new array to the Data.json file
+        Set-Content -Path $JSONDataPath -Value ($JSONData | ConvertTo-Json)                                   # Save
+        # Get to ensure we have the latest version, after just writing to it
+        $JSONData = Get-Content -Path $JSONDataPath | ConvertFrom-Json                                        # Get
+    } else {
+        # If LastUpdateCheck -GT (LastUpdateCheck + moduleDefaultUpdateFrequency)
+        if (($JSONData.powershellModules | Where-Object Name -eq $module.Name).LastUpdateCheck -gt ($JSONData.powershellModules | Where-Object Name -eq $module.Name).LastUpdateCheck.AddDays($JSONConfig.PowerShell.moduleDefaultUpdateFrequency)) {
+            # Start a job to check for an update
+            Start-ModuleVersionCheck -ModuleName $module.Name
+            $jobsCreated = $true # Used later during the job check
+
+            # Set the LastUpdateCheck to the current date
+
+            # Get the contents of the file to ensure we have the latest version     
+            $JSONData = Get-Content -Path $JSONDataPath | ConvertFrom-Json                                        # Get
+            # Update the LastUpdateCheck
+            ($JSONData.powershellModules | Where-Object Name -eq $module.Name).LastUpdateCheck = Get-Date -AsUTC  # Set
+            # Save the new array to the Data.json file
+            Set-Content -Path $JSONDataPath -Value ($JSONData | ConvertTo-Json)                                   # Save
+            # Get to ensure we have the latest version, after just writing to it
+            $JSONData = Get-Content -Path $JSONDataPath | ConvertFrom-Json                                        # Get
+        } else {
+            Write-Host ("⏱️ $($module.Name) has recently been checked for updates.")
+        }
+    }
+}
+
+
+if ($jobsCreated) {
+    Write-Host ("Waiting for version checks to complete...")
+    $Jobs = Get-Job
+
+    while ($Jobs.State -contains "Running") {
+        $Jobs = Get-Job
+        Start-Sleep -Seconds 1
+    }
+
+    foreach ($Job in $Jobs) {
+        if (Receive-Job -Keep -Id $Job.Id) {
+
+            if ($JSONConfig.PowerShell.moduleAutoUpdate) {
+                Write-Host ("⚡ Attempting to update module: " + $($job.Name.Replace("VersionChecker-", "")))
+                Update-Module -Name $($job.Name.Replace("VersionChecker-", "")) -Verbose
+            } else {
+                Write-Host ("⚠️ Update available for module: " + $($job.Name.Replace("VersionChecker-", "")))
+                Write-Host ("⚡ To update use: Update-Module -Name " + $($job.Name.Replace("VersionChecker-", "")) + ". Alternatively, set moduleAutoUpdate to true in $($JSONConfigPath)")
+            }
+
+            
+        } else {
+            # Check that the module is in Data.json and the last check date has been set
+        }
     Remove-Job -Name $Job.Name
+    }
 }
 
 # -- Oh-My-Posh -- #
@@ -120,10 +215,15 @@ if ($null -ne $ompVersion) {
         Write-Host ("⚡ Oh-My-Posh already up to date!")
     }
 }
-else {
+if ($null -eq $ompVersion) {
     Write-Host ("⚡ Installing Oh-My-Posh!")
     winget install JanDeDobbeleer.OhMyPosh -s winget | Out-Null
 }
+
+# -- Module Imports -- #
+Import-ModuleIfInstalled("Terminal-Icons")
+Import-ModuleIfInstalled("Az.Accounts")         # Only a subnet of modules are imported to speed up startup
+Import-ModuleIfInstalled("Az.Resources")
 
 Write-Host ("⚡ Starting Oh-My-Posh!")
 oh-my-posh --init --shell pwsh --config "C:\Users\${env:username}\OneDrive\Documents\PowerShell\Modules\oh-my-posh\3.177.0\themes\blue-owl.omp.json" | Invoke-Expression
