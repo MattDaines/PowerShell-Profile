@@ -16,6 +16,9 @@ if (!(Test-Path -LiteralPath $JSONConfigPath)) {
             moduleDefaultUpdateFrequency = 7
             modules = @()
         }
+        OhMyPosh = @{
+            updateFrequency = 7
+        }
     }
 
     # Creates the file as it doesn't exist
@@ -192,23 +195,62 @@ if ($jobsCreated) {
 }
 
 # -- Oh-My-Posh -- #
-$ompVersion = oh-my-posh version
-if ($null -ne $ompVersion) {
-    
-    Write-Host ("⚡ Attempting to update Oh-My-Posh!")
-    winget upgrade JanDeDobbeleer.OhMyPosh -s winget | Out-Null
+# If Oh-My-Posh has not previously been checked for updates
+if ((!($JSONData.OhMyPosh.LastUpdateCheck))) {
+    # Oh-My-Posh has not been previously updated
 
-    $ompVersionPostUpgrade = oh-my-posh version
-    if ($ompVersion -ne $ompVersionPostUpgrade) {
-        Write-Host ("ℹ️ Oh-My-Posh updated from version ${ompVersion} to ${ompVersionPostUpgrade}!")
+    $ompVersion = oh-my-posh version
+    # If Oh-My-Posh is installed and due for an update check
+    if (($null -ne $ompVersion) -and ($JSONData.OhMyPosh.LastUpdateCheck) -gt ($JSONData.OhMyPosh.LastUpdateCheck + $JSONConfig.OhMyPosh.updateFrequency)) {
+        Write-Host ("⚡ Attempting to update Oh-My-Posh!")
+        winget upgrade JanDeDobbeleer.OhMyPosh -s winget | Out-Null
+
+        # Set the LastUpdateCheck to the current date
+        # Get the contents of the file to ensure we have the latest version 
+        $JSONData = Get-Content -Path $JSONDataPath | ConvertFrom-Json                                        # Get
+        # Update the LastUpdateCheck
+        $JSONData.OhMyPosh.LastUpdateCheck = Get-Date -AsUTC  # Set
+        # Save the new array to the Data.json file
+        Set-Content -Path $JSONDataPath -Value ($JSONData | ConvertTo-Json)                                   # Save
+        # Get to ensure we have the latest version, after just writing to it
+        $JSONData = Get-Content -Path $JSONDataPath | ConvertFrom-Json                                        # Get
+
+        $ompVersionPostUpgrade = oh-my-posh version
+        if ($ompVersion -ne $ompVersionPostUpgrade) {
+
+            # Set the LastUpdated to the current date
+            # Get the contents of the file to ensure we have the latest version 
+            $JSONData = Get-Content -Path $JSONDataPath | ConvertFrom-Json                                        # Get
+            # Update the LastUpdated
+            $JSONData.OhMyPosh.LastUpdated = Get-Date -AsUTC  # Set
+            # Save the new array to the Data.json file
+            Set-Content -Path $JSONDataPath -Value ($JSONData | ConvertTo-Json)                                   # Save
+            # Get to ensure we have the latest version, after just writing to it
+            $JSONData = Get-Content -Path $JSONDataPath | ConvertFrom-Json   
+
+            Write-Host ("ℹ️ Oh-My-Posh updated from version ${ompVersion} to ${ompVersionPostUpgrade}!")
+        }
+        else {
+            Write-Host ("ℹ️ Oh-My-Posh already up to date!")
+        }
     }
-    else {
-        Write-Host ("⚡ Oh-My-Posh already up to date!")
+    if ($null -eq $ompVersion) {
+        Write-Host ("⚡ Installing Oh-My-Posh!")
+        winget install JanDeDobbeleer.OhMyPosh -s winget | Out-Null
+
+        # Set the LastUpdated and LastUpdateCheck to the current date
+        # Get the contents of the file to ensure we have the latest version 
+        $JSONData = Get-Content -Path $JSONDataPath | ConvertFrom-Json                                        # Get
+        # Update the LastUpdated
+        $Now = Get-Date -AsUTC
+        $JSONData.OhMyPosh.LastUpdated = $Now           # Set
+        $JSONData.OhMyPosh.LastUpdateCheck = $Now       # Set
+        Remove-Variable Now
+        # Save the new array to the Data.json file
+        Set-Content -Path $JSONDataPath -Value ($JSONData | ConvertTo-Json)                                   # Save
+        # Get to ensure we have the latest version, after just writing to it
+        $JSONData = Get-Content -Path $JSONDataPath | ConvertFrom-Json   
     }
-}
-if ($null -eq $ompVersion) {
-    Write-Host ("⚡ Installing Oh-My-Posh!")
-    winget install JanDeDobbeleer.OhMyPosh -s winget | Out-Null
 }
 
 # -- Module Imports -- #
