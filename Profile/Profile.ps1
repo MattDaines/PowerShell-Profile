@@ -306,4 +306,7 @@ Import-ModuleIfInstalled("posh-git")
 
 Write-Host ("⚡ Starting Oh-My-Posh!")
 oh-my-posh --init --shell pwsh --config (Join-Path -Path $ProfileDirectory -ChildPath \Profile\bubbles-modified.json) | Invoke-Expression
-$env:POSH_GIT_ENABLED = $true
+if (Get-Module posh-git) {
+    # Added this logic as setting this to true with now posh-git module installed causes a silent error and Oh-My-Posh to not load
+    $env:POSH_GIT_ENABLED = $true
+} else { Write-Host ("❗ The PowerShell module posh-git is not installed. It's recommended to install it for the best experience.")}
