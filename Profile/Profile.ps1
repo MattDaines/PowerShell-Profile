@@ -128,7 +128,7 @@ function Uninstall-ObsoleteModule {
 # -- Moudle Version Checks -- #
 
 # Gets all PowerShell Modules - excluding the sub-modules of Az
-$InstalledModules = Get-InstalledModule | Where-Object Name -NotLike Az.*
+$InstalledModules = Get-InstalledModule | Where-Object Name -NotLike Az.* | Where-Object Name -NotLike Microsoft.Graph.*
 
 foreach ($module in $InstalledModules) {
     # Before we check for the last updates we need to make sure that the module is registered in the Data.json file
