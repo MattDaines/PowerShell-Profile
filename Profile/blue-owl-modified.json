@@ -36,10 +36,10 @@
         {
           "background": "#FF5800",
           "background_templates": [
-            "{{ if or (.Working.Changed) (.Staging.Changed) }}#FFEB3B{{ end }}",
-            "{{ if and (gt .Ahead 0) (gt .Behind 0) }}#FFCC80{{ end }}",
-            "{{ if gt .Ahead 0 }}#B388FF{{ end }}",
-            "{{ if gt .Behind 0 }}#B388FF{{ end }}"
+            "{{ if or (.Working.Changed) (.Staging.Changed) }}#FF5800{{ end }}",
+            "{{ if and (gt .Ahead 0) (gt .Behind 0) }}#FF5800{{ end }}",
+            "{{ if gt .Ahead 0 }}#FF5800{{ end }}",
+            "{{ if gt .Behind 0 }}#FF5800{{ end }}"
           ],
           "foreground": "#FFFFFF",
           "powerline_symbol": "\ue0b0",
@@ -94,7 +94,8 @@
           "background": "#FF5800",
           "foreground": "#FFFFFF",
           "properties": {},
-          "style": "plain",
+          "leading_diamond": "\ue0c5 ",
+          "style": "diamond",
           "template": " \uf2c0 {{.User.Name}} <#0078d4>\uebd8</> {{ .Name }} ",
           "type": "az"
         }
