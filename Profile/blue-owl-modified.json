@@ -94,9 +94,9 @@
           "background": "#FF5800",
           "foreground": "#FFFFFF",
           "properties": {},
-          "leading_diamond": "\ue0c5 ",
+          "leading_diamond": "\ue0c5",
           "style": "diamond",
-          "template": " \uf2c0 {{.User.Name}} <#0078d4>\uebd8</> {{ .Name }} ",
+          "template": "  \uf2c0 {{.User.Name}} <#0078d4>\uebd8</> {{ .Name }} ",
           "type": "az"
         }
       ],
