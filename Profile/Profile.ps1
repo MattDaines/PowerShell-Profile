@@ -310,7 +310,8 @@ if (Get-Module posh-git) {
     # Added this logic as setting this to true with now posh-git module installed causes a silent error and Oh-My-Posh to not load
     $env:POSH_GIT_ENABLED = $true
 } else { Write-Host ("❗ The PowerShell module posh-git is not installed. It's recommended to install it for the best experience.")}
-if (Get-Module Az) {
+# Uses Get-InstalledModule for AZ as we have not imported the whole module, unlike posh-git
+if (Get-InstalledModule Az) {
     # Added this logic as setting this to true with now Az module installed causes a silent error and Oh-My-Posh to not load
     $env:POSH_AZURE_ENABLED = $true
 } else { Write-Host ("❗ The PowerShell module Az is not installed. It's recommended to install it for the best experience.")}
