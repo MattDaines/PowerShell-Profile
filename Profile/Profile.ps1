@@ -179,7 +179,7 @@ foreach ($module in $InstalledModules) {
     } else {    # An else is used here as we don't want to run the code below if it has just been checked because of the above if statement
         # If the module was last checked for an update more than the configured amount of days ago
         # If LastUpdateCheck -GT (LastUpdateCheck + moduleDefaultUpdateFrequency)
-        if (($JSONData.powershellModules | Where-Object Name -eq $module.Name).LastUpdateCheck -gt ($JSONData.powershellModules | Where-Object Name -eq $module.Name).LastUpdateCheck.AddDays($JSONConfig.PowerShell.moduleDefaultUpdateFrequency)) {
+        if ((Get-Date) -gt ($JSONData.powershellModules | Where-Object Name -eq $module.Name).LastUpdateCheck.AddDays($JSONConfig.PowerShell.moduleDefaultUpdateFrequency)) {
             # Start a job to check for an update
             Start-ModuleVersionCheck -ModuleName $module.Name
             $jobsCreated = $true # Used later during the job check
