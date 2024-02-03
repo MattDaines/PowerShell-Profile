@@ -45,7 +45,7 @@ For **Windows Terminal** you'll want to insert the below into your desired profi
 
 For **VS Code** you will need to update the setting `terminal.integrated.fontFamily` to: `CaskaydiaCove Nerd Font Mono`. You can also provide a list: `'CaskaydiaCove Nerd Font Mono', Consolas, 'Courier New', monospace`.
 
-❗ If the glyphs aren't showing up, restart VS Code!
+> ❗If the glyphs aren't showing up, restart VS Code!
 
 ### Import The Profile
 
