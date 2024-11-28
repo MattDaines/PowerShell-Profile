@@ -47,13 +47,18 @@ $JSONConfig = Get-Content -Path $JSONConfigPath | ConvertFrom-Json
 $JSONData = Get-Content -Path $JSONDataPath | ConvertFrom-Json
 
 # Sets the Default Path. Set to where your Repositories are stored
-$DefaultPath = "C:\Users\${env:username}\Documents\Repos\"
-If (Test-Path $DefaultPath) {
-    Set-Location $DefaultPath
+If (Test-Path .git -Type Container) {
+    Write-Verbose -Message ("Current location has a .git folder. Skipping Set-Location as it's likely the VS Code has opened the terminal at the correct directory.")    
 } else {
-    New-Item -ItemType Directory -Path $DefaultPath
-    Set-Location $DefaultPath
+    $DefaultPath = "C:\Users\${env:username}\Documents\Repos\"
+    If (Test-Path $DefaultPath) {
+        Set-Location $DefaultPath
+    } else {
+        New-Item -ItemType Directory -Path $DefaultPath
+        Set-Location $DefaultPath
+    }
 }
+
 
 # -- Functions -- #
 function Import-ModuleIfInstalled($ModuleName) {
@@ -212,27 +217,28 @@ if ($jobsCreated) {
     
     # Iterates through all jobs and checks if they returned true (meaning an update is available for that module)
     foreach ($Job in $Jobs) {
-        if (Receive-Job -Keep -Id $Job.Id) {
+        if ((Receive-Job -Keep -Id $Job.Id) -or ($true)) {
 
             if ($JSONConfig.PowerShell.moduleAutoUpdate) {
-                Write-Host ("⚡ Attempting to update module: " + $($job.Name.Replace("VersionChecker-", "")))
-                Update-Module -Name $($job.Name.Replace("VersionChecker-", "")) -Verbose
+                $CurrentModule = $job.Name.Replace("VersionChecker-", "")
+                Write-Host ("⚡ Attempting to update module: " + $CurrentModule)
+                Update-Module -Name $CurrentModule -Verbose
 
                 # Set the LastUpdated to the current date
                 # Get the contents of the file to ensure we have the latest version     
                 $JSONData = Get-Content -Path $JSONDataPath | ConvertFrom-Json                                        # Get
                 # Update the LastUpdateCheck
-                ($JSONData.powershellModules | Where-Object Name -eq $module.Name).LastUpdated = Get-Date -AsUTC      # Set
+                ($JSONData.powershellModules | Where-Object Name -eq $CurrentModule).LastUpdated = Get-Date -AsUTC      # Set
                 # Save the new array to the Data.json file
                 Set-Content -Path $JSONDataPath -Value ($JSONData | ConvertTo-Json)                                   # Save
                 # Get to ensure we have the latest version, after just writing to it
                 $JSONData = Get-Content -Path $JSONDataPath | ConvertFrom-Json                                        # Get
 
-                Uninstall-ObsoleteModule -ModuleName $module.Name -Verbose
+                Uninstall-ObsoleteModule -ModuleName $CurrentModule -Verbose
 
             } else {
-                Write-Host ("⚠️ Update available for module: " + $($job.Name.Replace("VersionChecker-", "")))
-                Write-Host (" To update use: Update-Module -Name " + $($job.Name.Replace("VersionChecker-", "")) + ". Alternatively, set moduleAutoUpdate to true in $($JSONConfigPath). Updating manually will not update the LastUpdated property in the profile data file.")
+                Write-Host ("⚠️ Update available for module: " + $CurrentModule)
+                Write-Host (" To update use: Update-Module -Name " + $CurrentModule + ". Alternatively, set moduleAutoUpdate to true in $($JSONConfigPath). Updating manually will not update the LastUpdated property in the profile data file.")
             }
         }
         Remove-Job -Name $Job.Name
@@ -305,7 +311,7 @@ Import-ModuleIfInstalled("Az.Resources")
 Import-ModuleIfInstalled("posh-git")
 
 Write-Host ("⚡ Starting Oh-My-Posh!")
-oh-my-posh init pwsh --config (Join-Path -Path $ProfileDirectory -ChildPath \Profile\blue-owl-modified.json) | Invoke-Expression
+oh-my-posh init pwsh --config (Join-Path -Path $ProfileDirectory -ChildPath \Profile\bubbles-modified-2024-08-27.json) | Invoke-Expression
 if (Get-Module posh-git) {
     # Added this logic as setting this to true with now posh-git module installed causes a silent error and Oh-My-Posh to not load
     $env:POSH_GIT_ENABLED = $true
