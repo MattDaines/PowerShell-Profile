@@ -311,7 +311,7 @@ Import-ModuleIfInstalled("Az.Resources")
 Import-ModuleIfInstalled("posh-git")
 
 Write-Host ("⚡ Starting Oh-My-Posh!")
-oh-my-posh init pwsh --config (Join-Path -Path $ProfileDirectory -ChildPath \Profile\blue-owl-modified.json) | Invoke-Expression
+oh-my-posh init pwsh --config (Join-Path -Path $ProfileDirectory -ChildPath \Profile\bubbles-modified-2024-08-27.json) | Invoke-Expression
 if (Get-Module posh-git) {
     # Added this logic as setting this to true with now posh-git module installed causes a silent error and Oh-My-Posh to not load
     $env:POSH_GIT_ENABLED = $true
