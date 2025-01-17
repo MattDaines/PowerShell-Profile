@@ -130,6 +130,34 @@ function Uninstall-ObsoleteModule {
     end {}
 }
 
+function Get-MyPublicIpAddress {
+    <#
+    .SYNOPSIS
+    Returns your current public IP address as a string.
+
+    .DESCRIPTION
+    Finds your public IP address by using a web call to http://icanhazip.com or to http://ipv4.icanhazip.com for forcing an IPv4 response.
+
+    .PARAMETER ForceIPv4
+    This paramater forces the web call to http://ipv4.icanhazip.com instead of http://icanhazip.com. http://icanhazip.com can return an IPv6 address.
+
+    .EXAMPLE
+    Get-MyPublicIpAddress -ForceIPv4
+
+    .OUTPUTS
+    Your IPv4 or IPv6 address as a string.
+    #>
+    param (
+        [Switch]$ForceIPv4
+    )
+    
+    if($ForceIPv4) {
+        (Invoke-WebRequest -Uri 'http://ipv4.icanhazip.com').Content.Trim()
+    } else {
+        (Invoke-WebRequest -Uri 'http://icanhazip.com').Content.Trim()
+    }
+}
+
 # -- Moudle Version Checks -- #
 
 # Gets all PowerShell Modules - excluding the sub-modules of Az
