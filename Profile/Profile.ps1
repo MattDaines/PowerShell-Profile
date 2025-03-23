@@ -62,10 +62,13 @@ If (Test-Path .git -Type Container) {
 
 # -- Functions -- #
 function Import-ModuleIfInstalled($ModuleName) {
-    if ((Get-module -ListAvailable -Name $ModuleName).count -gt 0) {
+    # If the module is installed and not already imported, we import it
+    if ((Get-Module -ListAvailable -Name $ModuleName).count -gt 0 -and ($null -eq (Get-Module -Name $ModuleName))) {
         Write-Host "Importing module: $ModuleName"
         Import-Module -Name $ModuleName
-    }
+    } else { 
+        Write-Verbose "Module $ModuleName is installed and already imported"
+     }
 }
 
 function Start-ModuleVersionCheck($ModuleName) {
