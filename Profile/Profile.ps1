@@ -42,7 +42,7 @@ if (!(Test-Path -LiteralPath $JSONDataPath)) {
     Remove-Variable -Name JSONDataBody
 }
 
-# Stores the contents of the Confg and Data file into a variable (as they should exist now!)
+# Stores the contents of the Config and Data file into a variable (as they should exist now!)
 $JSONConfig = Get-Content -Path $JSONConfigPath | ConvertFrom-Json
 $JSONData = Get-Content -Path $JSONDataPath | ConvertFrom-Json
 
@@ -139,7 +139,7 @@ function Get-MyPublicIpAddress {
     Finds your public IP address by using a web call to http://icanhazip.com or to http://ipv4.icanhazip.com for forcing an IPv4 response.
 
     .PARAMETER ForceIPv4
-    This paramater forces the web call to http://ipv4.icanhazip.com instead of http://icanhazip.com. http://icanhazip.com can return an IPv6 address.
+    This parameter forces the web call to http://ipv4.icanhazip.com instead of http://icanhazip.com. http://icanhazip.com can return an IPv6 address.
 
     .EXAMPLE
     Get-MyPublicIpAddress -ForceIPv4
@@ -158,7 +158,7 @@ function Get-MyPublicIpAddress {
     }
 }
 
-# -- Moudle Version Checks -- #
+# -- Module Version Checks -- #
 
 # Gets all PowerShell Modules - excluding the sub-modules of Az
 $InstalledModules = Get-InstalledModule | Where-Object Name -NotLike Az.* | Where-Object Name -NotLike Microsoft.Graph.*
@@ -227,7 +227,7 @@ foreach ($module in $InstalledModules) {
             # Get to ensure we have the latest version, after just writing to it
             $JSONData = Get-Content -Path $JSONDataPath | ConvertFrom-Json                                        # Get
         } else {
-            Write-Host ("⏱️ $($module.Name) has recently been checked for updates.")
+            Write-Host ("⏱️  $($module.Name) has recently been checked for updates.")
         }
     }
 }
@@ -337,6 +337,15 @@ Import-ModuleIfInstalled("Terminal-Icons")
 Import-ModuleIfInstalled("Az.Accounts")         # Only a subnet of modules are imported to speed up startup
 Import-ModuleIfInstalled("Az.Resources")
 Import-ModuleIfInstalled("posh-git")
+Import-ModuleIfInstalled("PSReadLine")
+
+if ($null -ne (Get-Module -Name PSReadLine)) {
+    # If PSReadLine is installed we set PSReadLineOptions
+
+    Set-PSReadLineOption -PredictionSource History
+    Set-PSReadLineOption -PredictionViewStyle ListView
+    Set-PSReadLineOption -EditMode Windows
+}
 
 Write-Host ("⚡ Starting Oh-My-Posh!")
 oh-my-posh init pwsh --config (Join-Path -Path $ProfileDirectory -ChildPath \Profile\bubbles-modified.json) | Invoke-Expression
