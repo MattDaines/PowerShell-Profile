@@ -37,7 +37,7 @@ For **Windows Terminal** you'll want to insert the below into your desired profi
 
 ```json
 "font": {
-  "face": "CaskaydiaCove Nerd Font Mono"
+  "face": "CaskaydiaCove NFM"
 }
 ```
 
