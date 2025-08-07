@@ -161,6 +161,32 @@ function Get-MyPublicIpAddress {
     }
 }
 
+function Start-AiQuery {
+    [CmdletBinding()]
+    param (
+        [Parameter(Mandatory = $true)]
+        [string]$Prompt,
+
+        [Parameter(Mandatory = $false)]
+        [switch]$Reasoning
+    )
+    
+    begin {
+        if ($Reasoning) {
+            $Model = "phi-4-mini-reasoning"
+        }
+        else {
+            $Model = "phi-4-mini"
+        }
+    }
+    
+    process {
+        foundry model run $Model --prompt $Prompt
+    }
+
+    end { Write-Verbose "Response completed by $Model" }
+}
+
 # -- Module Version Checks -- #
 
 # Gets all PowerShell Modules - excluding the sub-modules of Az
