@@ -49,11 +49,13 @@ $JSONData = Get-Content -Path $JSONDataPath | ConvertFrom-Json
 # Sets the Default Path. Set to where your Repositories are stored
 If (Test-Path .git -Type Container) {
     Write-Verbose -Message ("Current location has a .git folder. Skipping Set-Location as it's likely the VS Code has opened the terminal at the correct directory.")    
-} else {
+}
+else {
     $DefaultPath = "C:\Users\${env:username}\Documents\Repos\"
     If (Test-Path $DefaultPath) {
         Set-Location $DefaultPath
-    } else {
+    }
+    else {
         New-Item -ItemType Directory -Path $DefaultPath
         Set-Location $DefaultPath
     }
@@ -66,9 +68,10 @@ function Import-ModuleIfInstalled($ModuleName) {
     if ((Get-Module -ListAvailable -Name $ModuleName).count -gt 0 -and ($null -eq (Get-Module -Name $ModuleName))) {
         Write-Host "Importing module: $ModuleName"
         Import-Module -Name $ModuleName
-    } else { 
+    }
+    else { 
         Write-Verbose "Module $ModuleName is installed and already imported"
-     }
+    }
 }
 
 function Start-ModuleVersionCheck($ModuleName) {
@@ -154,37 +157,64 @@ function Get-MyPublicIpAddress {
         [Switch]$ForceIPv4
     )
     
-    if($ForceIPv4) {
+    if ($ForceIPv4) {
         (Invoke-WebRequest -Uri 'http://ipv4.icanhazip.com').Content.Trim()
-    } else {
+    }
+    else {
         (Invoke-WebRequest -Uri 'http://icanhazip.com').Content.Trim()
     }
 }
 
-function Start-AiQuery {
-    [CmdletBinding()]
-    param (
-        [Parameter(Mandatory = $true)]
-        [string]$Prompt,
+# -- Models.json Check -- #
+$ModelsJsonPath = Join-Path -Path $ProfileDirectory -ChildPath 'models.json'
+$ModelsConfig = $null
+$ModelsConfigValid = $false
 
-        [Parameter(Mandatory = $false)]
-        [switch]$Reasoning
-    )
-    
-    begin {
-        if ($Reasoning) {
-            $Model = "phi-4-mini-reasoning"
+if (!(Test-Path -LiteralPath $ModelsJsonPath)) {
+    Write-Warning "models.json not found in $ProfileDirectory. Please create it manually with 'instructModel' and 'reasoningModel' keys."
+}
+else {
+    try {
+        $ModelsConfig = Get-Content -Path $ModelsJsonPath | ConvertFrom-Json
+        if ($ModelsConfig.PSObject.Properties.Name -contains 'instructModel' -and $ModelsConfig.PSObject.Properties.Name -contains 'reasoningModel') {
+            $ModelsConfigValid = $true
         }
         else {
-            $Model = "phi-4-mini"
+            Write-Warning "models.json is missing required keys: 'instructModel' and/or 'reasoningModel'. Please update the file."
         }
     }
-    
-    process {
-        foundry model run $Model --prompt $Prompt
+    catch {
+        Write-Warning "Failed to parse models.json. Please ensure it is valid JSON."
     }
+}
 
-    end { Write-Verbose "Response completed by $Model" }
+if ($ModelsConfigValid) {
+    # Start-AiQuery is only loaded if the models.json file is valid
+    function Start-AiQuery {
+        [CmdletBinding()]
+        param (
+            [Parameter(Mandatory = $true)]
+            [string]$Prompt,
+
+            [Parameter(Mandatory = $false)]
+            [switch]$Reasoning
+        )
+    
+        begin {
+            if ($Reasoning) {
+                $Model = $ModelsConfig.reasoningModel
+            }
+            else {
+                $Model = $ModelsConfig.instructModel
+            }
+        }
+    
+        process {
+            foundry model run $Model --prompt $Prompt
+        }
+
+        end { Write-Verbose "Response completed by $Model" }
+    }
 }
 
 # -- Module Version Checks -- #
@@ -204,9 +234,9 @@ foreach ($module in $InstalledModules) {
 
         # Default body of a module in the Data.json file
         $NewModuleBody = @{
-            Name = $module.Name
+            Name            = $module.Name
             LastUpdateCheck = $null
-            LastUpdated = $null
+            LastUpdated     = $null
         }
 
         # Get the contents of the file to ensure we have the latest version     
@@ -238,7 +268,9 @@ foreach ($module in $InstalledModules) {
         Set-Content -Path $JSONDataPath -Value ($JSONData | ConvertTo-Json)                                   # Save
         # Get to ensure we have the latest version, after just writing to it
         $JSONData = Get-Content -Path $JSONDataPath | ConvertFrom-Json                                        # Get
-    } else {    # An else is used here as we don't want to run the code below if it has just been checked because of the above if statement
+    }
+    else {
+        # An else is used here as we don't want to run the code below if it has just been checked because of the above if statement
         # If the module was last checked for an update more than the configured amount of days ago
         # If LastUpdateCheck -GT (LastUpdateCheck + moduleDefaultUpdateFrequency)
         if ((Get-Date) -gt ($JSONData.powershellModules | Where-Object Name -eq $module.Name).LastUpdateCheck.AddDays($JSONConfig.PowerShell.moduleDefaultUpdateFrequency)) {
@@ -255,7 +287,8 @@ foreach ($module in $InstalledModules) {
             Set-Content -Path $JSONDataPath -Value ($JSONData | ConvertTo-Json)                                   # Save
             # Get to ensure we have the latest version, after just writing to it
             $JSONData = Get-Content -Path $JSONDataPath | ConvertFrom-Json                                        # Get
-        } else {
+        }
+        else {
             Write-Host ("⏱️  $($module.Name) has recently been checked for updates.")
         }
     }
@@ -293,7 +326,8 @@ if ($jobsCreated) {
 
                 Uninstall-ObsoleteModule -ModuleName $CurrentModule -Verbose
 
-            } else {
+            }
+            else {
                 Write-Host ("⚠️ Update available for module: " + $CurrentModule)
                 Write-Host (" To update use: Update-Module -Name " + $CurrentModule + ". Alternatively, set moduleAutoUpdate to true in $($JSONConfigPath). Updating manually will not update the LastUpdated property in the profile data file.")
             }
@@ -381,9 +415,11 @@ oh-my-posh init pwsh --config (Join-Path -Path $ProfileDirectory -ChildPath \Pro
 if (Get-Module posh-git) {
     # Added this logic as setting this to true with now posh-git module installed causes a silent error and Oh-My-Posh to not load
     $env:POSH_GIT_ENABLED = $true
-} else { Write-Host ("❗ The PowerShell module posh-git is not installed. It's recommended to install it for the best experience.")}
+}
+else { Write-Host ("❗ The PowerShell module posh-git is not installed. It's recommended to install it for the best experience.") }
 # Uses Get-InstalledModule for AZ as we have not imported the whole module, unlike posh-git
 if (Get-InstalledModule Az) {
     # Added this logic as setting this to true with now Az module installed causes a silent error and Oh-My-Posh to not load
     $env:POSH_AZURE_ENABLED = $true
-} else { Write-Host ("❗ The PowerShell module Az is not installed. It's recommended to install it for the best experience.")}
+}
+else { Write-Host ("❗ The PowerShell module Az is not installed. It's recommended to install it for the best experience.") }
