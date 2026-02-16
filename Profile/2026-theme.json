@@ -1,0 +1,133 @@
+{
+  "$schema": "https://raw.githubusercontent.com/JanDeDobbeleer/oh-my-posh/main/themes/schema.json",
+  "version": 2,
+  "final_space": true,
+  "blocks": [
+    {
+      "type": "prompt",
+      "alignment": "left",
+      "newline": false,
+      "segments": [
+        {
+          "type": "path",
+          "style": "powerline",
+          "foreground": "#ffffff",
+          "background": "#29315A",
+          "template": "\ue5ff {{ .Path }} ",
+          "powerline_symbol": "\ue0cc",
+          "trailing_diamond": "\ue0b4",
+          "options": {
+            "style": "folder"
+          }
+        },
+        {
+          "type": "git",
+          "style": "powerline",
+          "foreground": "#ffffff",
+          "background": "#e75b3b",
+          "template": " {{ .UpstreamIcon }}{{ .HEAD }}{{if .BranchStatus }} {{ .BranchStatus }}{{ end }}{{ if .Working.Changed }} \uf044 {{ .Working.String }}{{ end }}{{ if and (.Working.Changed) (.Staging.Changed) }} |{{ end }}{{ if .Staging.Changed }} \uf046 {{ .Staging.String }}{{ end }}{{ if gt .StashCount 0 }} \uf0c7 {{ .StashCount }}{{ end }} ",
+          "powerline_symbol": "\ue0cc",
+          "leading_diamond": " \ue0b6",
+          "trailing_diamond": "\ue0b4",
+          "options": {
+            "fetch_status": true
+          },
+          "cache": {
+            "duration": "2s",
+            "strategy": "session"
+          }
+        },
+        {
+          "type": "python",
+          "style": "powerline",
+          "foreground": "#fbda69",
+          "background": "#4473a2",
+          "template": " \ue235{{ if .Error }}{{ .Error }}{{ else }}{{ if .Venv }}{{ .Venv }} {{ end }}{{ .Full }}{{ end }} ",
+          "powerline_symbol": "\ue0c6",
+          "leading_diamond": " \ue0b6",
+          "trailing_diamond": "\ue0b4",
+          "options": {
+            "fetch_version": false
+          }
+        },
+        {
+          "type": "go",
+          "style": "powerline",
+          "foreground": "#202224",
+          "background": "#7FD5EA",
+          "template": " \ue626{{ if .Error }}{{ .Error }}{{ else }}{{ .Full }}{{ end }} ",
+          "powerline_symbol": "\ue0c6",
+          "leading_diamond": " \ue0b6",
+          "trailing_diamond": "\ue0b4",
+          "options": {
+            "fetch_version": false
+          }
+        },
+        {
+          "type": "node",
+          "style": "powerline",
+          "foreground": "#ffffff",
+          "background": "#c9392c",
+          "template": " \ue718{{ if .PackageManagerIcon }}{{ .PackageManagerIcon }} {{ end }}{{ .Full }} ",
+          "powerline_symbol": "\ue0c6",
+          "leading_diamond": " \ue0b6",
+          "trailing_diamond": "\ue0b4",
+          "options": {
+            "fetch_version": false
+          }
+        }
+      ]
+    },
+    {
+      "type": "prompt",
+      "alignment": "right",
+      "segments": [
+        {
+          "type": "az",
+          "style": "powerline",
+          "powerline_symbol": "\ue0c0",
+          "template": " \uebd8 {{ .User.Name }} on {{ .Name }} ",
+          "options": {
+            "source": "pwsh"
+          },
+          "foreground": "#ffffff",
+          "background": "#0078D4",
+          "leading_powerline_symbol": "\ue0c2",
+          "cache": {
+            "duration": "1h",
+            "strategy": "session"
+          }
+        }
+      ]
+    },
+    {
+      "type": "prompt",
+      "alignment": "left",
+      "newline": true,
+      "segments": [
+        {
+          "type": "executiontime",
+          "style": "diamond",
+          "foreground": "#FF5800",
+          "background": "#29315A",
+          "template": "{{ .FormattedMs }}",
+          "leading_diamond": "\ue0b6",
+          "trailing_diamond": "\ue0b4 ",
+          "options": {
+            "style": "austin",
+            "threshold": 150
+          }
+        },
+        {
+          "type": "text",
+          "style": "diamond",
+          "foreground": "#FF5800",
+          "background": "#29315A",
+          "template": "\u276f",
+          "leading_diamond": "\ue0b6",
+          "trailing_diamond": "\ue0b4"
+        }
+      ]
+    }
+  ]
+}
