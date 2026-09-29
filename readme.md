@@ -58,6 +58,8 @@ Now that we have the PowerShell modules and fonts installed we can import the pr
   - Running `ls` or `Get-ChildIdem` should show the `Import-Profile.ps1` file as well as the `Profile` directory
 - Run `.\Import-Profile.ps1` which copies the files to your `$PROFILE` directory.
 
+On Linux, run the importer with `./Import-Profile.ps1` in PowerShell. The profile uses `~/Documents/Repos` as its default starting directory on Linux (and the equivalent path under your home directory on Windows).
+
 > Import 
 >
 > You will need to run `.\Import-Profile.ps1` from both Windows Terminal/PowerShell 7 and the integrated terminal in VS Code. The two applications use a different `$PROFILE` path.
