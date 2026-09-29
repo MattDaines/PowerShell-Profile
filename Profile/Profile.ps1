@@ -51,7 +51,7 @@ If (Test-Path .git -Type Container) {
     Write-Verbose -Message ("Current location has a .git folder. Skipping Set-Location as it's likely the VS Code has opened the terminal at the correct directory.")    
 }
 else {
-    $DefaultPath = "C:\Users\${env:username}\Documents\Repos\"
+    $DefaultPath = Join-Path -Path $HOME -ChildPath 'Documents/Repos'
     If (Test-Path $DefaultPath) {
         Set-Location $DefaultPath
     }
@@ -411,7 +411,7 @@ if ($null -ne (Get-Module -Name PSReadLine)) {
 }
 
 Write-Host ("⚡ Starting Oh-My-Posh!")
-oh-my-posh init pwsh --config (Join-Path -Path $ProfileDirectory -ChildPath \Profile\bubbles-modified.json) | Invoke-Expression
+oh-my-posh init pwsh --config (Join-Path -Path $ProfileDirectory -ChildPath 'Profile/bubbles-modified.json') | Invoke-Expression
 if (Get-Module posh-git) {
     # Added this logic as setting this to true with now posh-git module installed causes a silent error and Oh-My-Posh to not load
     $env:POSH_GIT_ENABLED = $true
