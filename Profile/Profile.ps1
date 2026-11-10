@@ -48,7 +48,7 @@ $JSONData = Get-Content -Path $JSONDataPath | ConvertFrom-Json
 
 # Sets the Default Path. Set to where your Repositories are stored
 If (Test-Path .git -Type Container) {
-    Write-Verbose -Message ("Current location has a .git folder. Skipping Set-Location as it's likely the VS Code has opened the terminal at the correct directory.")    
+    Write-Verbose -Message ("Current location has a .git folder. Skipping Set-Location as it's likely the VS Code has opened the terminal at the correct directory.")
 }
 else {
     $DefaultPath = Join-Path -Path $HOME -ChildPath 'Documents/Repos'
@@ -69,7 +69,7 @@ function Import-ModuleIfInstalled($ModuleName) {
         Write-Host "Importing module: $ModuleName"
         Import-Module -Name $ModuleName
     }
-    else { 
+    else {
         Write-Verbose "Module $ModuleName is installed and already imported"
     }
 }
@@ -103,7 +103,7 @@ function Uninstall-ObsoleteModule {
         Write-Verbose -Message ("Getting all versions of the module $ModuleName")
         $Module = Get-Module -ListAvailable -Name $ModuleName
 
-        
+
     }
     process {
         # If there is only one version of the module, then there is no module versions to uninstall
@@ -156,13 +156,111 @@ function Get-MyPublicIpAddress {
     param (
         [Switch]$ForceIPv4
     )
-    
+
     if ($ForceIPv4) {
         (Invoke-WebRequest -Uri 'http://ipv4.icanhazip.com').Content.Trim()
     }
     else {
         (Invoke-WebRequest -Uri 'http://icanhazip.com').Content.Trim()
     }
+}
+
+function Sync-EdgeProfileShortcuts {
+    [CmdletBinding()]
+    param ()
+
+    if (!$IsWindows) {
+        return
+    }
+
+    $EdgeProfilesPath = 'HKCU:\Software\Microsoft\Edge\Profiles'
+    if (!(Test-Path -LiteralPath $EdgeProfilesPath)) {
+        return
+    }
+
+    try {
+        $EdgeProfiles = @(Get-ChildItem -LiteralPath $EdgeProfilesPath -ErrorAction Stop |
+            Where-Object PSChildName -NE 'Default' |
+            Get-ItemProperty -ErrorAction Stop)
+        $EdgeCommand = Get-Command msedge.exe -CommandType Application -ErrorAction SilentlyContinue | Select-Object -First 1
+        $EdgeExecutable = $EdgeCommand.Source
+        if (!$EdgeExecutable) {
+            foreach ($InstallRoot in @(${env:ProgramFiles(x86)}, $env:ProgramFiles, $env:LOCALAPPDATA)) {
+                if ($InstallRoot) {
+                    $Candidate = Join-Path -Path $InstallRoot -ChildPath 'Microsoft\Edge\Application\msedge.exe'
+                    if (Test-Path -LiteralPath $Candidate -PathType Leaf) {
+                        $EdgeExecutable = $Candidate
+                        break
+                    }
+                }
+            }
+        }
+        if (!$EdgeExecutable) {
+            Write-Verbose 'Edge was not found. Skipping profile shortcuts.'
+            return
+        }
+
+        $StartMenuPath = Join-Path -Path $env:APPDATA -ChildPath 'Microsoft\Windows\Start Menu\Programs'
+        if (!(Test-Path -LiteralPath $StartMenuPath)) {
+            New-Item -ItemType Directory -Path $StartMenuPath -ErrorAction Stop | Out-Null
+        }
+
+        $Shell = New-Object -ComObject WScript.Shell -ErrorAction Stop
+        $ManagedPrefix = 'PowerShell-Profile:Edge:'
+        $ExpectedShortcuts = @()
+
+        foreach ($EdgeProfile in $EdgeProfiles) {
+            $ProfileId = $EdgeProfile.PSChildName
+            $ProfileName = $EdgeProfile.ShortcutName
+            if (!$ProfileName) {
+                $ProfileName = $EdgeProfile.name
+            }
+            if (!$ProfileName) {
+                $ProfileName = $ProfileId
+            }
+
+            $SafeName = ($ProfileName -replace '[<>:"/\\|?*\x00-\x1F]', '_').Trim().TrimEnd('.')
+            $ShortcutName = "Edge ($SafeName)"
+            $Description = "$ManagedPrefix$ProfileId"
+            $ShortcutPath = Join-Path -Path $StartMenuPath -ChildPath "$ShortcutName.lnk"
+            $Suffix = 0
+
+            while (Test-Path -LiteralPath $ShortcutPath) {
+                $ExistingShortcut = $Shell.CreateShortcut($ShortcutPath)
+                if ($ExistingShortcut.Description -eq $Description) {
+                    break
+                }
+                $Suffix++
+                $ShortcutPath = Join-Path -Path $StartMenuPath -ChildPath "$ShortcutName ($Suffix).lnk"
+            }
+
+            $Shortcut = $Shell.CreateShortcut($ShortcutPath)
+            $Shortcut.TargetPath = $EdgeExecutable
+            $Shortcut.Arguments = '--profile-directory="{0}"' -f $ProfileId
+            $Shortcut.WorkingDirectory = Split-Path -Parent -Path $EdgeExecutable
+            $Shortcut.IconLocation = "$EdgeExecutable,0"
+            $Shortcut.Description = $Description
+            $Shortcut.Save()
+            $ExpectedShortcuts += $ShortcutPath
+        }
+
+        foreach ($ShortcutFile in (Get-ChildItem -LiteralPath $StartMenuPath -Filter '*.lnk' -File -ErrorAction Stop)) {
+            if ($ShortcutFile.FullName -in $ExpectedShortcuts) {
+                continue
+            }
+            $ExistingShortcut = $Shell.CreateShortcut($ShortcutFile.FullName)
+            if ($ExistingShortcut.Description -like "$ManagedPrefix*") {
+                Remove-Item -LiteralPath $ShortcutFile.FullName -ErrorAction Stop
+            }
+        }
+    }
+    catch {
+        Write-Warning "Unable to synchronize Edge profile shortcuts: $_"
+    }
+}
+
+if ($IsWindows) {
+    Sync-EdgeProfileShortcuts
 }
 
 # -- Models.json Check -- #
@@ -199,7 +297,7 @@ if ($ModelsConfigValid) {
             [Parameter(Mandatory = $false)]
             [switch]$Reasoning
         )
-    
+
         begin {
             if ($Reasoning) {
                 $Model = $ModelsConfig.reasoningModel
@@ -208,7 +306,7 @@ if ($ModelsConfigValid) {
                 $Model = $ModelsConfig.instructModel
             }
         }
-    
+
         process {
             foundry model run $Model --prompt $Prompt
         }
@@ -227,7 +325,7 @@ foreach ($module in $InstalledModules) {
 
     # Filter information from $JSONDate to the current module
     $ModuleFromDataFile = $JSONData.powershellModules | Where-Object Name -eq $module.Name
-    
+
     # Registers the PowerShell module to the Data file if it was not found (it's $null)
     if (!($ModuleFromDataFile)) {
         # Module is not registered in the Data.json file
@@ -239,7 +337,7 @@ foreach ($module in $InstalledModules) {
             LastUpdated     = $null
         }
 
-        # Get the contents of the file to ensure we have the latest version     
+        # Get the contents of the file to ensure we have the latest version
         $JSONData = Get-Content -Path $JSONDataPath | ConvertFrom-Json          # Get
         # Add the new module to the array
         $JSONData.powershellModules += $NewModuleBody                           # Set
@@ -260,7 +358,7 @@ foreach ($module in $InstalledModules) {
         $jobsCreated = $true # Used later during the job check
 
         # Set the LastUpdateCheck to the current date
-        # Get the contents of the file to ensure we have the latest version     
+        # Get the contents of the file to ensure we have the latest version
         $JSONData = Get-Content -Path $JSONDataPath | ConvertFrom-Json                                        # Get
         # Update the LastUpdateCheck
         ($JSONData.powershellModules | Where-Object Name -eq $module.Name).LastUpdateCheck = Get-Date -AsUTC  # Set
@@ -279,7 +377,7 @@ foreach ($module in $InstalledModules) {
             $jobsCreated = $true # Used later during the job check
 
             # Set the LastUpdateCheck to the current date
-            # Get the contents of the file to ensure we have the latest version     
+            # Get the contents of the file to ensure we have the latest version
             $JSONData = Get-Content -Path $JSONDataPath | ConvertFrom-Json                                        # Get
             # Update the LastUpdateCheck
             ($JSONData.powershellModules | Where-Object Name -eq $module.Name).LastUpdateCheck = Get-Date -AsUTC  # Set
@@ -304,7 +402,7 @@ if ($jobsCreated) {
         $Jobs = Get-Job
         Start-Sleep -Seconds 1
     }
-    
+
     # Iterates through all jobs and checks if they returned true (meaning an update is available for that module)
     foreach ($Job in $Jobs) {
         if ((Receive-Job -Keep -Id $Job.Id) -or ($true)) {
@@ -315,7 +413,7 @@ if ($jobsCreated) {
                 Update-Module -Name $CurrentModule -Verbose
 
                 # Set the LastUpdated to the current date
-                # Get the contents of the file to ensure we have the latest version     
+                # Get the contents of the file to ensure we have the latest version
                 $JSONData = Get-Content -Path $JSONDataPath | ConvertFrom-Json                                        # Get
                 # Update the LastUpdateCheck
                 ($JSONData.powershellModules | Where-Object Name -eq $CurrentModule).LastUpdated = Get-Date -AsUTC      # Set
@@ -348,7 +446,7 @@ if ((!($JSONData.OhMyPosh.LastUpdateCheck))) {
         winget upgrade JanDeDobbeleer.OhMyPosh -s winget | Out-Null
 
         # Set the LastUpdateCheck to the current date
-        # Get the contents of the file to ensure we have the latest version 
+        # Get the contents of the file to ensure we have the latest version
         $JSONData = Get-Content -Path $JSONDataPath | ConvertFrom-Json                                        # Get
         # Update the LastUpdateCheck
         $JSONData.OhMyPosh.LastUpdateCheck = Get-Date -AsUTC  # Set
@@ -361,14 +459,14 @@ if ((!($JSONData.OhMyPosh.LastUpdateCheck))) {
         if ($ompVersion -ne $ompVersionPostUpgrade) {
 
             # Set the LastUpdated to the current date
-            # Get the contents of the file to ensure we have the latest version 
+            # Get the contents of the file to ensure we have the latest version
             $JSONData = Get-Content -Path $JSONDataPath | ConvertFrom-Json                                        # Get
             # Update the LastUpdated
             $JSONData.OhMyPosh.LastUpdated = Get-Date -AsUTC  # Set
             # Save the new array to the Data.json file
             Set-Content -Path $JSONDataPath -Value ($JSONData | ConvertTo-Json)                                   # Save
             # Get to ensure we have the latest version, after just writing to it
-            $JSONData = Get-Content -Path $JSONDataPath | ConvertFrom-Json   
+            $JSONData = Get-Content -Path $JSONDataPath | ConvertFrom-Json
 
             Write-Host ("ℹ️ Oh-My-Posh updated from version ${ompVersion} to ${ompVersionPostUpgrade}!")
         }
@@ -381,7 +479,7 @@ if ((!($JSONData.OhMyPosh.LastUpdateCheck))) {
         winget install JanDeDobbeleer.OhMyPosh -s winget | Out-Null
 
         # Set the LastUpdated and LastUpdateCheck to the current date
-        # Get the contents of the file to ensure we have the latest version 
+        # Get the contents of the file to ensure we have the latest version
         $JSONData = Get-Content -Path $JSONDataPath | ConvertFrom-Json                                        # Get
         # Update the LastUpdated
         $Now = Get-Date -AsUTC
@@ -391,7 +489,7 @@ if ((!($JSONData.OhMyPosh.LastUpdateCheck))) {
         # Save the new array to the Data.json file
         Set-Content -Path $JSONDataPath -Value ($JSONData | ConvertTo-Json)                                   # Save
         # Get to ensure we have the latest version, after just writing to it
-        $JSONData = Get-Content -Path $JSONDataPath | ConvertFrom-Json   
+        $JSONData = Get-Content -Path $JSONDataPath | ConvertFrom-Json
     }
 }
 
