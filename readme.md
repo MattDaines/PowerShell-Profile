@@ -33,7 +33,7 @@ Personally, I like `CascadiaCode`.
 
 We now need to configure our applications to use the fonts.
 
-For **Windows Terminal** you'll want to insert the below into your desired profiles: 
+For **Windows Terminal** you'll want to insert the below into your desired profiles:
 
 ```json
 "font": {
@@ -60,11 +60,47 @@ Now that we have the PowerShell modules and fonts installed we can import the pr
 
 On Linux, run the importer with `./Import-Profile.ps1` in PowerShell. The profile uses `~/Documents/Repos` as its default starting directory on Linux (and the equivalent path under your home directory on Windows).
 
-> Import 
+> Import
 >
 > You will need to run `.\Import-Profile.ps1` from both Windows Terminal/PowerShell 7 and the integrated terminal in VS Code. The two applications use a different `$PROFILE` path.
 > - VS Code: `"$ENV:USERPROFILE\Documents\PowerShell\Microsoft.VSCode_profile.ps1"`
 > - Terminal: `"$ENV:USERPROFILE\Documents\PowerShell\Microsoft.PowerShell_profile.ps1"`
+
+## Configuration Schema
+
+`config.schema.json` defines the profile configuration fields and WinGet rules. Running `.\Import-Profile.ps1` copies it beside `$PROFILE`. The profile adds `"$schema": "./config.schema.json"` to new and existing `config.json` files so editors that support JSON Schema can offer completion and validation. An existing `$schema` setting is preserved.
+
+## WinGet Updates
+
+On Windows, run `Start-WinGetUpdate` when you are ready to update available packages.
+Use `Start-WinGetUpdate -WhatIf` to preview the operations. Each invocation refreshes the available updates and reads `config.json` beside `$PROFILE`.
+
+Packages default to upgrading by their exact ID. Add rules to the `WinGet.packages` array in `config.json` to change this behavior.
+
+```json
+"WinGet": {
+  "packages": [
+    {
+      "id": "Vendor.*",
+      "updateStrategy": "upgrade",
+      "referenceBy": "name"
+    },
+    {
+      "id": "Vendor.SpecificPackage",
+      "updateStrategy": "reinstall",
+      "referenceBy": "name"
+    }
+  ]
+}
+```
+
+`id` supports case-insensitive PowerShell wildcards. An exact ID rule wins over wildcard rules, otherwise the first matching wildcard rule in JSON order wins. `updateStrategy` accepts `upgrade`, `reinstall`, or `skip` and defaults to `upgrade`.
+Use `skip` to exclude matching packages from the update run, for example `{ "id": "Vendor.*", "updateStrategy": "skip" }`.
+`referenceBy` accepts `name` or `id` and defaults to `id`. Names and IDs come from the parsed WinGet package objects.
+
+Reinstall runs a separate uninstall followed by install, using the same name or ID for both. If uninstall fails, the package is skipped. Other packages continue after a failure, and normal installer prompts remain available. Rows with unusable IDs are skipped, as are name-based operations whose displayed name is truncated.
+
+After updating this repository, run `.\Import-Profile.ps1` and open a new PowerShell session to load the function.
 
 ## Troubleshooting
 

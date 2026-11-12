@@ -1,0 +1,80 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "title": "PowerShell Profile Configuration",
+  "type": "object",
+  "properties": {
+    "$schema": {
+      "type": "string",
+      "description": "Path or URL of the configuration schema."
+    },
+    "PowerShell": {
+      "type": "object",
+      "properties": {
+        "moduleAutoUpdate": {
+          "type": "boolean",
+          "default": true
+        },
+        "moduleDefaultUpdateFrequency": {
+          "type": "number",
+          "minimum": 0,
+          "default": 7,
+          "description": "Days between module update checks."
+        },
+        "modules": {
+          "type": "array",
+          "default": [],
+          "description": "Reserved module configuration, currently unused by the profile."
+        }
+      },
+      "additionalProperties": false
+    },
+    "OhMyPosh": {
+      "type": "object",
+      "properties": {
+        "updateFrequency": {
+          "type": "number",
+          "minimum": 0,
+          "default": 7,
+          "description": "Days between Oh My Posh update checks."
+        }
+      },
+      "additionalProperties": false
+    },
+    "WinGet": {
+      "type": "object",
+      "properties": {
+        "packages": {
+          "type": "array",
+          "default": [],
+          "description": "Exact ID rules take priority, followed by the first matching wildcard rule. ID matching is case-insensitive.",
+          "items": {
+            "type": "object",
+            "required": ["id"],
+            "properties": {
+              "id": {
+                "type": "string",
+                "pattern": "\\S",
+                "description": "Package ID or PowerShell wildcard pattern, for example Vendor.*."
+              },
+              "updateStrategy": {
+                "type": "string",
+                "enum": ["upgrade", "reinstall", "skip"],
+                "default": "upgrade",
+                "description": "Upgrade, uninstall then install, or skip the package."
+              },
+              "referenceBy": {
+                "type": "string",
+                "enum": ["name", "id"],
+                "default": "id",
+                "description": "Identify the package using its parsed name or ID for each operation."
+              }
+            },
+            "additionalProperties": false
+          }
+        }
+      },
+      "additionalProperties": false
+    }
+  },
+  "additionalProperties": false
+}

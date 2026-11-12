@@ -11,6 +11,7 @@ $JSONDataPath   = Join-Path -Path $ProfileDirectory -ChildPath 'data.json'
 if (!(Test-Path -LiteralPath $JSONConfigPath)) {
     # The default starting body of the JSON file
     $JSONConfigBody = @{
+        '$schema' = './config.schema.json'
         PowerShell = @{
             moduleAutoUpdate = $true
             moduleDefaultUpdateFrequency = 7
@@ -19,12 +20,15 @@ if (!(Test-Path -LiteralPath $JSONConfigPath)) {
         OhMyPosh = @{
             updateFrequency = 7
         }
+        WinGet = @{
+            packages = @()
+        }
     }
 
     # Creates the file as it doesn't exist
     New-Item -ItemType File -Path $JSONConfigPath
     # Sets the default body of the JSON file
-    Set-Content -Path $JSONConfigPath -Value ($JSONConfigBody | ConvertTo-Json)
+    Set-Content -Path $JSONConfigPath -Value ($JSONConfigBody | ConvertTo-Json -Depth 20)
     Remove-Variable -Name JSONConfigBody
 }
 
@@ -46,6 +50,20 @@ if (!(Test-Path -LiteralPath $JSONDataPath)) {
 $JSONConfig = Get-Content -Path $JSONConfigPath | ConvertFrom-Json
 $JSONData = Get-Content -Path $JSONDataPath | ConvertFrom-Json
 
+if ($JSONConfig.PSObject.Properties.Name -notcontains '$schema') {
+    $JSONConfig | Add-Member -NotePropertyName '$schema' -NotePropertyValue './config.schema.json'
+    Set-Content -LiteralPath $JSONConfigPath -Value ($JSONConfig | ConvertTo-Json -Depth 20)
+}
+
+if ($null -eq $JSONConfig.WinGet) {
+    $JSONConfig | Add-Member -NotePropertyName WinGet -NotePropertyValue ([pscustomobject]@{ packages = @() }) -Force
+    Set-Content -LiteralPath $JSONConfigPath -Value ($JSONConfig | ConvertTo-Json -Depth 20)
+}
+elseif ($JSONConfig.WinGet.PSObject.Properties.Name -notcontains 'packages') {
+    $JSONConfig.WinGet | Add-Member -NotePropertyName packages -NotePropertyValue @()
+    Set-Content -LiteralPath $JSONConfigPath -Value ($JSONConfig | ConvertTo-Json -Depth 20)
+}
+
 # Sets the Default Path. Set to where your Repositories are stored
 If (Test-Path .git -Type Container) {
     Write-Verbose -Message ("Current location has a .git folder. Skipping Set-Location as it's likely the VS Code has opened the terminal at the correct directory.")
@@ -63,6 +81,134 @@ else {
 
 
 # -- Functions -- #
+if ($IsWindows) {
+    function Start-WinGetUpdate {
+        <#
+        .SYNOPSIS
+        Updates available WinGet packages using rules in the profile config.json.
+        .DESCRIPTION
+        Exact ID rules take priority over wildcard rules. Otherwise the first matching
+        wildcard rule wins. updateStrategy defaults to upgrade and referenceBy to id.
+        Use updateStrategy skip to leave matching packages out of the update run.
+        .EXAMPLE
+        Start-WinGetUpdate -WhatIf
+        .EXAMPLE
+        Start-WinGetUpdate
+        #>
+        [CmdletBinding(SupportsShouldProcess)]
+        param ()
+
+        $WinGetCommand = Get-Command winget -ErrorAction Stop
+        $Config = Get-Content -LiteralPath $JSONConfigPath -Raw -ErrorAction Stop | ConvertFrom-Json -ErrorAction Stop
+        $Rules = @($Config.WinGet.packages)
+        $Patterns = @{}
+        foreach ($Rule in $Rules) {
+            if ($null -eq $Rule) { continue }
+            if ([string]::IsNullOrWhiteSpace($Rule.id) -or $Patterns.ContainsKey($Rule.id)) {
+                throw 'Each WinGet rule must have a nonempty, unique ID pattern.'
+            }
+            $Patterns[$Rule.id] = $true
+            # Constructing the pattern also validates wildcard syntax before any changes.
+            $null = [System.Management.Automation.WildcardPattern]::new($Rule.id, 'IgnoreCase')
+            if ($Rule.updateStrategy -and $Rule.updateStrategy -notin @('upgrade', 'reinstall', 'skip')) {
+                throw "Invalid updateStrategy for $($Rule.id). Use upgrade, reinstall, or skip."
+            }
+            if ($Rule.referenceBy -and $Rule.referenceBy -notin @('name', 'id')) {
+                throw "Invalid referenceBy for $($Rule.id). Use name or id."
+            }
+        }
+
+        $ListOutput = @(& $WinGetCommand list --source winget --upgrade-available)
+        $ListExitCode = $LASTEXITCODE
+        # APPINSTALLER_CLI_ERROR_NO_APPLICATIONS_FOUND is also an empty result.
+        if ($ListExitCode -eq -1978335212) {
+            Write-Host 'No WinGet updates available.'
+            return
+        }
+        if ($ListExitCode -ne 0) {
+            throw "WinGet update discovery failed with exit code $ListExitCode."
+        }
+
+        $Packages = @()
+        $Columns = $null
+        $PreviousLine = ''
+        foreach ($OutputLine in $ListOutput) {
+            $Line = ([string]$OutputLine -replace '\x1b\[[0-?]*[ -/]*[@-~]', '')
+            if ($Line -match '^\s*-{3,}\s*$') {
+                # WinGet pads header columns with at least two spaces, including localized headers.
+                $Columns = [regex]::Matches($PreviousLine, '\S.*?(?=\s{2,}|$)')
+                continue
+            }
+            $PreviousLine = $Line
+            if (!$Columns -or $Columns.Count -lt 4 -or [string]::IsNullOrWhiteSpace($Line)) { continue }
+            $Values = @()
+            for ($Index = 0; $Index -lt 4; $Index++) {
+                $Start = $Columns[$Index].Index
+                $End = $Line.Length
+                if ($Index + 1 -lt $Columns.Count) {
+                    $End = [Math]::Min($End, $Columns[$Index + 1].Index)
+                }
+                $Values += if ($Start -lt $End) { $Line.Substring($Start, $End - $Start).Trim() } else { '' }
+            }
+            # Summary lines do not extend into the version columns.
+            if (!$Values[1] -or !$Values[2] -or !$Values[3]) { continue }
+            if (!$Values[0] -or $Values[1] -match '\s|…|\.\.\.$') {
+                Write-Warning "Skipping unusable WinGet row: $Line"
+                continue
+            }
+            $Packages += [pscustomobject]@{
+                Id = $Values[1]
+                Name = $Values[0]
+                InstalledVersion = $Values[2]
+                AvailableVersion = $Values[3]
+            }
+        }
+        if (!$Columns -or $Columns.Count -lt 4) {
+            throw 'Unable to locate the WinGet package table.'
+        }
+        if (!$Packages.Count) { Write-Host 'No WinGet updates available.' }
+
+        foreach ($Package in $Packages) {
+            $Rule = $Rules | Where-Object { $_.id -eq $Package.Id } | Select-Object -First 1
+            if (!$Rule) {
+                $Rule = $Rules | Where-Object { $_ -and $Package.Id -like $_.id } | Select-Object -First 1
+            }
+            $Strategy = 'upgrade'
+            $ReferenceBy = 'id'
+            if ($Rule.updateStrategy) { $Strategy = $Rule.updateStrategy.ToLowerInvariant() }
+            if ($Strategy -eq 'skip') {
+                Write-Verbose "Skipping $($Package.Id) according to its configured rule."
+                continue
+            }
+            if ($Rule.referenceBy) { $ReferenceBy = $Rule.referenceBy.ToLowerInvariant() }
+            $Reference = $Package.Id
+            if ($ReferenceBy -eq 'name') { $Reference = $Package.Name }
+            if ($Reference -match '…|\.\.\.$') {
+                Write-Warning "Skipping $($Package.Id) because its $ReferenceBy is truncated."
+                continue
+            }
+            if (!$PSCmdlet.ShouldProcess("$($Package.Name) [$($Package.Id)]", "$Strategy by $ReferenceBy")) { continue }
+
+            $Operations = @('upgrade')
+            if ($Strategy -eq 'reinstall') { $Operations = @('uninstall', 'install') }
+            foreach ($Operation in $Operations) {
+                $Arguments = @($Operation, "--$ReferenceBy", $Reference, '--exact', '--source', 'winget')
+                try {
+                    & $WinGetCommand @Arguments | Out-Host
+                    if ($LASTEXITCODE -ne 0) {
+                        Write-Warning "WinGet $Operation failed for $($Package.Id) with exit code $LASTEXITCODE."
+                        break
+                    }
+                }
+                catch {
+                    Write-Warning "WinGet $Operation failed for $($Package.Id): $_"
+                    break
+                }
+            }
+        }
+    }
+}
+
 function Import-ModuleIfInstalled($ModuleName) {
     # If the module is installed and not already imported, we import it
     if ((Get-Module -ListAvailable -Name $ModuleName).count -gt 0 -and ($null -eq (Get-Module -Name $ModuleName))) {
