@@ -1,3 +1,101 @@
+# Update before initializing modules and the prompt so this session uses the new profile.
+if (!(Get-Variable -Name ProfileUpdateReloading -ValueOnly -ErrorAction SilentlyContinue)) {
+    $ProfileUpdated = & {
+        $ErrorActionPreference = 'Stop'
+        try {
+            $Directory = Split-Path -Parent -Path $PROFILE
+            $ConfigFile = Join-Path $Directory 'config.json'
+            if (!(Test-Path -LiteralPath $ConfigFile)) { return $false }
+            $Config = Get-Content -LiteralPath $ConfigFile -Raw | ConvertFrom-Json
+            $Repository = $Config.PowerShell.repositoryPath
+            if ([string]::IsNullOrWhiteSpace($Repository)) { return $false }
+            if (!(Test-Path -LiteralPath $Repository -PathType Container)) {
+                throw "Repository directory is missing: $Repository"
+            }
+            $Git = (Get-Command git -CommandType Application -ErrorAction Stop).Source
+            $Timer = [System.Diagnostics.Stopwatch]::StartNew()
+
+            function Invoke-ProfileGit {
+                param([string[]]$GitArguments)
+
+                $Process = [System.Diagnostics.Process]::new()
+                $Process.StartInfo.FileName = $Git
+                $Process.StartInfo.UseShellExecute = $false
+                $Process.StartInfo.CreateNoWindow = $true
+                $Process.StartInfo.RedirectStandardOutput = $true
+                $Process.StartInfo.RedirectStandardError = $true
+                $Process.StartInfo.Environment['GIT_TERMINAL_PROMPT'] = '0'
+                $Process.StartInfo.Environment['GCM_INTERACTIVE'] = 'Never'
+                $Process.StartInfo.Environment['GIT_SSH_COMMAND'] = 'ssh -o BatchMode=yes'
+                foreach ($Argument in (@('-C', $Repository, '-c', 'credential.interactive=false') + $GitArguments)) {
+                    $Process.StartInfo.ArgumentList.Add($Argument)
+                }
+                try {
+                    $Remaining = 15000 - [int]$Timer.ElapsedMilliseconds
+                    if ($Remaining -le 0) { throw 'Git update exceeded 15 seconds.' }
+                    $null = $Process.Start()
+                    $Output = $Process.StandardOutput.ReadToEndAsync()
+                    $Errors = $Process.StandardError.ReadToEndAsync()
+                    if (!$Process.WaitForExit($Remaining)) {
+                        $Process.Kill($true)
+                        $Process.WaitForExit()
+                        throw 'Git update exceeded 15 seconds.'
+                    }
+                    if ($Process.ExitCode -ne 0) {
+                        $ErrorLine = ($Errors.GetAwaiter().GetResult().Trim() -split '\r?\n', 2)[0]
+                        throw "Git $($GitArguments[0]) failed. $ErrorLine"
+                    }
+                    $Output.GetAwaiter().GetResult().Trim()
+                }
+                finally {
+                    $Process.Dispose()
+                }
+            }
+
+            if (Invoke-ProfileGit -GitArguments @('status', '--porcelain')) {
+                throw 'The profile repository has local changes. Commit or stash them to enable updates.'
+            }
+            $Branch = Invoke-ProfileGit -GitArguments @('branch', '--show-current')
+            if ($Branch -ne 'main') {
+                # Fetch first so a missing local main can track the current origin/main.
+                $null = Invoke-ProfileGit -GitArguments @('fetch', 'origin', 'main')
+                $Branches = Invoke-ProfileGit -GitArguments @('branch', '--list', 'main')
+                if ($Branches) {
+                    $null = Invoke-ProfileGit -GitArguments @('switch', 'main')
+                }
+                else {
+                    $null = Invoke-ProfileGit -GitArguments @('switch', '--create', 'main', '--track', 'origin/main')
+                }
+            }
+            $null = Invoke-ProfileGit -GitArguments @('pull', '--ff-only', 'origin', 'main')
+            $Commit = Invoke-ProfileGit -GitArguments @('rev-parse', 'HEAD')
+            $DataFile = Join-Path $Directory 'data.json'
+            $InstalledCommit = $null
+            if (Test-Path -LiteralPath $DataFile) {
+                $Data = Get-Content -LiteralPath $DataFile -Raw | ConvertFrom-Json
+                $InstalledCommit = $Data.profileInstalledCommits.([string]$PROFILE)
+            }
+            if ($Commit -eq $InstalledCommit) { return $false }
+            & (Join-Path $Repository 'Import-Profile.ps1')
+            return $true
+        }
+        catch {
+            Write-Warning "Profile update skipped. $($_.Exception.Message)"
+            return $false
+        }
+    }
+    if ($ProfileUpdated) {
+        $ProfileUpdateReloading = $true
+        try {
+            . $PROFILE
+        }
+        finally {
+            Remove-Variable -Name ProfileUpdateReloading -ErrorAction SilentlyContinue
+        }
+        return
+    }
+}
+
 # -- Config.json & Data.json -- #
 
 # Gets the PowerShell Profile Directory

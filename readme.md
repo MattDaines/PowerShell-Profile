@@ -8,7 +8,7 @@
 
 - ~~💫 Add a persistent storage config file to prevent checking for PowerShell module updates every time a new session is opened.~~ ✅ **Done!**
 - ~~💫 Create my own Oh-My-Posh profile~~ ✅ **Done!**
-- 💫 A script to automatically `git pull` this repository and import any updates to the profiles
+- ~~💫 A script to automatically `git pull` this repository and import any updates to the profiles~~ ✅ **Done!**
 
 ## How To Use
 
@@ -65,6 +65,16 @@ On Linux, run the importer with `./Import-Profile.ps1` in PowerShell. The profil
 > You will need to run `.\Import-Profile.ps1` from both Windows Terminal/PowerShell 7 and the integrated terminal in VS Code. The two applications use a different `$PROFILE` path.
 > - VS Code: `"$ENV:USERPROFILE\Documents\PowerShell\Microsoft.VSCode_profile.ps1"`
 > - Terminal: `"$ENV:USERPROFILE\Documents\PowerShell\Microsoft.PowerShell_profile.ps1"`
+
+## Automatic Profile Updates
+
+Run `./Import-Profile.ps1` once from your clone for each PowerShell host to enable automatic updates. The importer can also be invoked by its full path from another directory. It records the clone's absolute path in `PowerShell.repositoryPath` in `config.json` beside `$PROFILE`, preserving existing settings.
+
+Each profile invocation checks the clone for local changes, switches a clean clone to `main`, and runs `git pull --ff-only origin main`. Git runs without interactive authentication and has a total update timeout of 15 seconds. Routine updates are silent. When the commit differs from the installed version, the importer copies the files and the updated profile loads in the same session.
+
+Local edits, divergent history, unavailable Git, and connection failures produce a warning and allow the installed profile to continue loading. Commit or stash local edits, resolve divergence manually, or restore connectivity, then invoke the profile again. If you move the clone, run its importer again to refresh the configured path.
+
+Successful installations are recorded per host profile in `data.json`. An interrupted import is retried on the next successful update check. You can also run the importer manually to reinstall the files.
 
 ## Configuration Schema
 

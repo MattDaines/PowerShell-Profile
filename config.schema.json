@@ -10,6 +10,10 @@
     "PowerShell": {
       "type": "object",
       "properties": {
+        "repositoryPath": {
+          "type": "string",
+          "description": "Absolute path to the profile repository, recorded by Import-Profile.ps1. Startup updates use origin/main."
+        },
         "moduleAutoUpdate": {
           "type": "boolean",
           "default": true
